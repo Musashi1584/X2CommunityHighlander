@@ -436,6 +436,12 @@ simulated exec function UpdateAnimations()
 {
 	local CustomAnimParams AnimParams, RemoveParams;
 
+	// Variables for Issue #271
+	local array<X2DownloadableContentInfo> DLCInfos;
+	local array<AnimSet> CustomAnimSets;
+	local XComGameState_Unit UnitState;
+	local int i;
+
 	super.UpdateAnimations();
 
 	if( TorsoContent != none && TorsoContent.UnitPawnAnimSets.Length > 0 )
@@ -452,6 +458,18 @@ simulated exec function UpdateAnimations()
 	}
 
 	XComReaddCarryAnimSets();
+
+	// Start Issue #271
+	DLCInfos = `ONLINEEVENTMGR.GetDLCInfos(false);
+	UnitState = XComGameState_Unit(`XCOMHISTORY.GetGameStateForObjectID(ObjectID));
+	for(i = 0; i < DLCInfos.Length; ++i)
+	{
+		CustomAnimSets.Length = 0;
+		DLCInfos[i].UpdateAnimations(CustomAnimSets, UnitState, self);
+		if (CustomAnimSets.Length > 0)
+			XComAddAnimSetsExternal(CustomAnimSets);
+	}
+	// End Issue #271
 }
 
 simulated function AddRequiredAnimSets()
