@@ -2,40 +2,39 @@ class LootTableHelper extends Object;
 
 static function AddEntryToLootTable(name TableName, LootTableEntry AddTableEntry)
 {
-	local X2LootTable LootTableCDO;
+	local X2LootTableManager LootManager;
 	local LootTableEntry TableEntry;
 	local int Index, TableEntryIndex;
-	local array<int> SumChances;
-	local int NewSumChances, OldChance;
+	local int NewSumChances, OldChance, SumChances;
 
-	LootTableCDO = X2LootTable (class'Engine'.static.FindClassDefaultObject("X2LootTable"));
+	LootManager = X2LootTableManager(class'Engine'.static.FindClassDefaultObject("X2LootTableManager"));
 
-	Index = LootTableCDO.default.LootTables.Find('TableName', TableName);
+	Index = LootManager.default.LootTables.Find('TableName', TableName);
 
 	if (Index  != INDEX_NONE)
 	{
-		foreach LootTableCDO.default.LootTables[Index].Loots(TableEntry)
+		foreach LootManager.default.LootTables[Index].Loots(TableEntry)
 		{
-			SumChances[TableEntry.RollGroup] += TableEntry.Chance;
+			if (TableEntry.RollGroup == AddTableEntry.RollGroup)
+				SumChances += TableEntry.Chance;
 		}
 
 		// Recalculate the chances
-		NewSumChances = SumChances[AddTableEntry.RollGroup] + AddTableEntry.Chance;
+		NewSumChances = SumChances + AddTableEntry.Chance;
 		if (NewSumChances > 0)
 		{
-			for (TableEntryIndex = 0; TableEntryIndex < LootTableCDO.default.LootTables[Index].Loots.Length; TableEntryIndex++)
+			for (TableEntryIndex = 0; TableEntryIndex < LootManager.default.LootTables[Index].Loots.Length; TableEntryIndex++)
 			{
-				if (LootTableCDO.default.LootTables[Index].Loots[TableEntryIndex].RollGroup == AddTableEntry.RollGroup)
+				if (LootManager.default.LootTables[Index].Loots[TableEntryIndex].RollGroup == AddTableEntry.RollGroup)
 				{
-					OldChance = LootTableCDO.default.LootTables[Index].Loots[TableEntryIndex].Chance;
-					LootTableCDO.default.LootTables[Index].Loots[TableEntryIndex].Chance = Round(100 / NewSumChances * OldChance);
-
+					OldChance = LootManager.default.LootTables[Index].Loots[TableEntryIndex].Chance;
+					LootManager.default.LootTables[Index].Loots[TableEntryIndex].Chance = Round(100 / NewSumChances * OldChance);
 				}
 			}
 			AddTableEntry.Chance = Round(100 / NewSumChances * AddTableEntry.Chance);
 		}
 
 		// Add the new table entry
-		LootTableCDO.default.LootTables[Index].Loots.AddItem(AddTableEntry);
+		LootManager.default.LootTables[Index].Loots.AddItem(AddTableEntry);
 	}
 }
