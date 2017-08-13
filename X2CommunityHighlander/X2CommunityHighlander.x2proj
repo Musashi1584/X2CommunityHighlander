@@ -57,6 +57,9 @@
     <Content Include="Src\XComGame\Classes\Helpers_LW.uc">
       <SubType>Content</SubType>
     </Content>
+    <Content Include="Src\XComGame\Classes\LootTableHelper.uc">
+      <SubType>Content</SubType>
+    </Content>
     <Content Include="Src\XComGame\Classes\LWUtilities_Ranks.uc">
       <SubType>Content</SubType>
     </Content>
