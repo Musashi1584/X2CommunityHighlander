@@ -21,7 +21,7 @@ static function AddEntryToLootTable(name TableName, LootTableEntry AddTableEntry
 
 		// Recalculate the chances
 		NewSumChances = SumChances + AddTableEntry.Chance;
-		if (NewSumChances > 0)
+		if (NewSumChances > 100)
 		{
 			for (TableEntryIndex = 0; TableEntryIndex < LootManager.default.LootTables[Index].Loots.Length; TableEntryIndex++)
 			{
