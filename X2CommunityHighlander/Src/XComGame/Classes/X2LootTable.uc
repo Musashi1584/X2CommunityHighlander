@@ -18,15 +18,15 @@ native function RollForLootTable(const out name LootTableName, out array<name> R
 
 // Start Issue #275 - Add a loot table interface
 // static function are for use in the DLCInfo OnPostTemplatesCreated event
-public function AddEntryAndReload(name TableName, LootTableEntry AddTableEntry)
+public function AddEntryAndReload(name TableName, LootTableEntry TableEntry)
 {
-	AddEntry(TableName, AddTableEntry);
+	AddEntry(self, TableName, TableEntry);
 	InitLootTables();
 }
 
 public function RemoveEntryAndReload(name TableName, LootTableEntry TableEntry)
 {
-	RemoveEntry(TableName, TableEntry);
+	RemoveEntry(self, TableName, TableEntry);
 	InitLootTables();
 }
 
@@ -35,7 +35,7 @@ public function AddLootTableAndReload(LootTable AddLootTable)
 	local LootTableEntry Loot;
 	foreach AddLootTable.Loots(Loot)
 	{
-		AddEntry(AddLootTable.TableName, Loot);
+		AddEntry(self, AddLootTable.TableName, Loot);
 	}
 	InitLootTables();
 }
@@ -48,10 +48,13 @@ public function RemoveLootTableAndReload(LootTable LootTable)
 
 public static function AddLootTable(LootTable AddLootTable)
 {
+	local X2LootTable LootTable;
 	local LootTableEntry Loot;
+
+	LootTable = X2LootTable(class'Engine'.static.FindClassDefaultObject(string(default.Class.Name)));
 	foreach AddLootTable.Loots(Loot)
 	{
-		AddEntry(AddLootTable.TableName, Loot);
+		AddEntry(LootTable, AddLootTable.TableName, Loot);
 	}
 }
 
@@ -65,15 +68,22 @@ public static function RemoveLootTable(LootTable RemoveLootTable)
 
 public static function AddEntryToLootTable(name TableName, LootTableEntry AddTableEntry)
 {
-	AddEntry(TableName, AddTableEntry);
+	local X2LootTable LootTable;
+
+	LootTable = X2LootTable(class'Engine'.static.FindClassDefaultObject(string(default.Class.Name)));
+	AddEntry(LootTable, TableName, AddTableEntry);
 }
 
-private static function RemoveEntry(name TableName, LootTableEntry TableEntry)
+public static function RemoveEntryFromLootTable(name TableName, LootTableEntry TableEntry)
 {
 	local X2LootTable LootTable;
-	local int Index;
-
 	LootTable = X2LootTable(class'Engine'.static.FindClassDefaultObject(string(default.Class.Name))); 
+	RemoveEntry(LootTable, TableName, TableEntry);
+}
+
+private static function RemoveEntry(X2LootTable LootTable, name TableName, LootTableEntry TableEntry)
+{
+	local int Index;
 
 	Index = LootTable.LootTables.Find('TableName', TableName);
 
@@ -84,14 +94,10 @@ private static function RemoveEntry(name TableName, LootTableEntry TableEntry)
 }
 
 // When the sum of chances is greater 100% after adding an entry, recalculate chances to 100% total
-private static function AddEntry(name TableName, LootTableEntry AddTableEntry)
+private static function AddEntry(X2LootTable LootTable, name TableName, LootTableEntry AddTableEntry)
 {
-	local X2LootTable LootTable;
 	local LootTableEntry TableEntry;
 	local int Index, OldChance, NewChance, SumChances, TableEntryIndex;
-
-	LootTable = X2LootTable(class'Engine'.static.FindClassDefaultObject(string(default.Class.Name))); 
-	`LOG(string(default.Class.Name) @ LootTable);
 
 	Index = LootTable.LootTables.Find('TableName', TableName);
 
