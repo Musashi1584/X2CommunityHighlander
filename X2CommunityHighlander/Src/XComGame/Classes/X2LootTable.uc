@@ -18,35 +18,31 @@ native function RollForLootTable(const out name LootTableName, out array<name> R
 
 // Start Issue #275 - Add a loot table interface
 // static function are for use in the DLCInfo OnPostTemplatesCreated event
-public function AddEntryAndReload(name TableName, LootTableEntry TableEntry)
+public function AddEntry(name TableName, LootTableEntry TableEntry)
 {
-	AddEntry(self, TableName, TableEntry);
-	InitLootTables();
+	AddEntryIntern(self, TableName, TableEntry);
 }
 
-public function RemoveEntryAndReload(name TableName, LootTableEntry TableEntry)
+public function RemoveEntry(name TableName, LootTableEntry TableEntry)
 {
-	RemoveEntry(self, TableName, TableEntry);
-	InitLootTables();
+	RemoveEntryIntern(self, TableName, TableEntry);
 }
 
-public function AddLootTableAndReload(LootTable AddLootTable)
+public function AddLootTable(LootTable AddLootTable)
 {
 	local LootTableEntry Loot;
 	foreach AddLootTable.Loots(Loot)
 	{
-		AddEntry(self, AddLootTable.TableName, Loot);
+		AddEntryIntern(self, AddLootTable.TableName, Loot);
 	}
-	InitLootTables();
 }
 
-public function RemoveLootTableAndReload(LootTable LootTable)
+public function RemoveLootTable(LootTable LootTable)
 {
 	RemoveLootTable(LootTable);
-	InitLootTables();
 }
 
-public static function AddLootTable(LootTable AddLootTable)
+public static function AddLootTableStatic(LootTable AddLootTable)
 {
 	local X2LootTable LootTable;
 	local LootTableEntry Loot;
@@ -54,11 +50,11 @@ public static function AddLootTable(LootTable AddLootTable)
 	LootTable = X2LootTable(class'Engine'.static.FindClassDefaultObject(string(default.Class.Name)));
 	foreach AddLootTable.Loots(Loot)
 	{
-		AddEntry(LootTable, AddLootTable.TableName, Loot);
+		AddEntryIntern(LootTable, AddLootTable.TableName, Loot);
 	}
 }
 
-public static function RemoveLootTable(LootTable RemoveLootTable)
+public static function RemoveLootTableStatic(LootTable RemoveLootTable)
 {
 	local X2LootTable LootTable;
 
@@ -66,22 +62,47 @@ public static function RemoveLootTable(LootTable RemoveLootTable)
 	LootTable.LootTables.RemoveItem(RemoveLootTable);
 }
 
-public static function AddEntryToLootTable(name TableName, LootTableEntry AddTableEntry)
+public static function AddEntryStatic(name TableName, LootTableEntry AddTableEntry)
 {
 	local X2LootTable LootTable;
 
 	LootTable = X2LootTable(class'Engine'.static.FindClassDefaultObject(string(default.Class.Name)));
-	AddEntry(LootTable, TableName, AddTableEntry);
+	AddEntryIntern(LootTable, TableName, AddTableEntry);
 }
 
-public static function RemoveEntryFromLootTable(name TableName, LootTableEntry TableEntry)
+public static function RemoveEntryStatic(name TableName, LootTableEntry TableEntry)
 {
 	local X2LootTable LootTable;
 	LootTable = X2LootTable(class'Engine'.static.FindClassDefaultObject(string(default.Class.Name))); 
-	RemoveEntry(LootTable, TableName, TableEntry);
+	RemoveEntryIntern(LootTable, TableName, TableEntry);
 }
 
-private static function RemoveEntry(X2LootTable LootTable, name TableName, LootTableEntry TableEntry)
+private static function RemoveEntryIntern(X2LootTable LootTable, name TableName, LootTableEntry TableEntry)
+{
+	local int Index, EntryIndex;
+
+	Index = LootTable.LootTables.Find('TableName', TableName);
+
+	if (Index  != INDEX_NONE)
+	{
+		for (EntryIndex = 0; EntryIndex < LootTable.LootTables[Index].Loots.Length; EntryIndex++)
+		{
+			if (LootTable.LootTables[Index].Loots[EntryIndex].RollGroup == TableEntry.RollGroup &&
+				LootTable.LootTables[Index].Loots[EntryIndex].TemplateName == TableEntry.TemplateName &&
+				LootTable.LootTables[Index].Loots[EntryIndex].TableRef == TableEntry.TableRef
+			)
+			{
+				// Remove the table entry
+				LootTable.LootTables[Index].Loots.Remove(EntryIndex, 1);
+				// Recalculate the chances for the roll group
+				RecalculateChances(LootTable, Index, TableEntry.RollGroup);
+				break;
+			}
+		}
+	}
+}
+
+private static function AddEntryIntern(X2LootTable LootTable, name TableName, LootTableEntry TableEntry)
 {
 	local int Index;
 
@@ -89,40 +110,43 @@ private static function RemoveEntry(X2LootTable LootTable, name TableName, LootT
 
 	if (Index  != INDEX_NONE)
 	{
-		LootTable.LootTables[Index].Loots.RemoveItem(TableEntry);
+		// Add the new table entry
+		LootTable.LootTables[Index].Loots.AddItem(TableEntry);
+
+		// Recalculate the chances for the roll group
+		RecalculateChances(LootTable, Index, TableEntry.RollGroup);
 	}
 }
 
-// When the sum of chances is greater 100% after adding an entry, recalculate chances to 100% total
-private static function AddEntry(X2LootTable LootTable, name TableName, LootTableEntry AddTableEntry)
+// When the sum of chances is unequal 100% after adding/removing an entry, recalculate chances to 100% total
+static function RecalculateChances(X2LootTable LootTable, int Index, int RollGroup)
 {
 	local LootTableEntry TableEntry;
-	local int Index, OldChance, NewChance, SumChances, TableEntryIndex;
+	local int OldChance, NewChance, SumChances, NewSumChances, TableEntryIndex;
 
-	Index = LootTable.LootTables.Find('TableName', TableName);
-
-	if (Index  != INDEX_NONE)
+	foreach LootTable.LootTables[Index].Loots(TableEntry)
 	{
-		// Add the new table entry
-		LootTable.LootTables[Index].Loots.AddItem(AddTableEntry);
+		if (TableEntry.RollGroup == RollGroup)
+			SumChances += TableEntry.Chance;
+	}
 
-		// Recalculate the chances
-		foreach LootTable.LootTables[Index].Loots(TableEntry)
+	if (SumChances != 100)
+	{
+		for (TableEntryIndex = 0; TableEntryIndex < LootTable.LootTables[Index].Loots.Length; TableEntryIndex++)
 		{
-			if (TableEntry.RollGroup == AddTableEntry.RollGroup)
-				SumChances += TableEntry.Chance;
-		}
-
-		if (SumChances > 100)
-		{
-			for (TableEntryIndex = 0; TableEntryIndex < LootTable.LootTables[Index].Loots.Length; TableEntryIndex++)
+			if (LootTable.LootTables[Index].Loots[TableEntryIndex].RollGroup == RollGroup)
 			{
-				if (LootTable.LootTables[Index].Loots[TableEntryIndex].RollGroup == AddTableEntry.RollGroup)
+				OldChance = LootTable.LootTables[Index].Loots[TableEntryIndex].Chance;
+				NewChance = Round(100 / SumChances * OldChance);
+
+				// Add round based differences to the last entry
+				NewSumChances += NewChance;
+				if(TableEntryIndex == LootTable.LootTables[Index].Loots.Length - 1 && NewSumChances != 100)
 				{
-					OldChance = LootTable.LootTables[Index].Loots[TableEntryIndex].Chance;
-					NewChance = Round(100 / SumChances * OldChance);
-					LootTable.LootTables[Index].Loots[TableEntryIndex].Chance = NewChance;
+					NewChance += (100 - NewSumChances);
 				}
+
+				LootTable.LootTables[Index].Loots[TableEntryIndex].Chance = NewChance;
 			}
 		}
 	}
