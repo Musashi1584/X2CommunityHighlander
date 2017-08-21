@@ -8,9 +8,9 @@ cpptext
 }
 
 // Issue #275 - Add a loot table interface
-struct Reminder {
+struct Remainder {
 	var int EntryIndex;
-	var float ChanceReminder;
+	var float ChanceRemainder;
 };
 
 // Issue #41 - making non-private to DLC/Mods can make run-time adjustments 
@@ -182,9 +182,9 @@ private static function RecalculateLootTableChanceIntern(X2LootTable LootTable, 
 
 
 
-function int SortReminder(Reminder A, Reminder B)
+function int SortRemainder(Remainder A, Remainder B)
 {
-	return A.ChanceReminder < B.ChanceReminder ? -1 : 0;
+	return A.ChanceRemainder < B.ChanceRemainder ? -1 : 0;
 }
 
 // When the sum of chances is unequal 100% after adding/removing an entry, recalculate chances to 100% total
@@ -192,8 +192,8 @@ private static function RecalculateChancesForRollGroup(X2LootTable LootTable, in
 {
 	local LootTableEntry TableEntry;
 	local int OldChance, NewChance, SumChances, NewSumChances, TableEntryIndex, RoundDiff;
-	local array<Reminder> Reminders;
-	local Reminder EntryReminder;
+	local array<Remainder> Remainders;
+	local Remainder EntryRemainder;
 
 	foreach LootTable.LootTables[Index].Loots(TableEntry)
 	{
@@ -211,9 +211,9 @@ private static function RecalculateChancesForRollGroup(X2LootTable LootTable, in
 				NewChance = 100 / SumChances * OldChance;
 				NewSumChances += NewChance;
 
-				EntryReminder.ChanceReminder = (100 / SumChances * OldChance) - NewChance;
-				EntryReminder.EntryIndex = TableEntryIndex;
-				Reminders.AddItem(EntryReminder);
+				EntryRemainder.ChanceRemainder = (100 / SumChances * OldChance) - NewChance;
+				EntryRemainder.EntryIndex = TableEntryIndex;
+				Remainders.AddItem(EntryRemainder);
 
 				LootTable.LootTables[Index].Loots[TableEntryIndex].Chance = NewChance;
 			}
@@ -221,20 +221,20 @@ private static function RecalculateChancesForRollGroup(X2LootTable LootTable, in
 
 
 		// even out round based differences using the largest remainder method
-		Reminders.Sort(SortReminder);
+		Remainders.Sort(SortRemainder);
 		RoundDiff = (100 - NewSumChances);
 		while (RoundDiff != 0)
 		{
-			foreach Reminders(EntryReminder)
+			foreach Remainders(EntryRemainder)
 			{
 				if (RoundDiff > 0)
 				{
-					LootTable.LootTables[Index].Loots[EntryReminder.EntryIndex].Chance += 1;
+					LootTable.LootTables[Index].Loots[EntryRemainder.EntryIndex].Chance += 1;
 					RoundDiff--;
 				}
 				else if (RoundDiff < 0)
 				{
-					LootTable.LootTables[Index].Loots[EntryReminder.EntryIndex].Chance -= 1;
+					LootTable.LootTables[Index].Loots[EntryRemainder.EntryIndex].Chance -= 1;
 					RoundDiff++;
 				}
 				else if (RoundDiff == 0)
