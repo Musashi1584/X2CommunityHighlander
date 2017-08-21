@@ -7,6 +7,12 @@ cpptext
 	virtual void RollForLootTableGroup(const FLootTable& LootTable, INT Group, TArray<FName>& RolledLoot);
 }
 
+// Issue #275 - Add a loot table interface
+struct Reminder {
+	var int EntryIndex;
+	var float ChanceReminder;
+};
+
 // Issue #41 - making non-private to DLC/Mods can make run-time adjustments 
 //             requires re-invoking InitLootTables again
 var config array<LootTable> LootTables; 
@@ -174,11 +180,20 @@ private static function RecalculateLootTableChanceIntern(X2LootTable LootTable, 
 	}
 }
 
+
+
+function int SortReminder(Reminder A, Reminder B)
+{
+	return A.ChanceReminder < B.ChanceReminder ? -1 : 0;
+}
+
 // When the sum of chances is unequal 100% after adding/removing an entry, recalculate chances to 100% total
 private static function RecalculateChancesForRollGroup(X2LootTable LootTable, int Index, int RollGroup)
 {
 	local LootTableEntry TableEntry;
-	local int OldChance, NewChance, SumChances, NewSumChances, TableEntryIndex, RoundDiff, DiffIndex;
+	local int OldChance, NewChance, SumChances, NewSumChances, TableEntryIndex, RoundDiff;
+	local array<Reminder> Reminders;
+	local Reminder EntryReminder;
 
 	foreach LootTable.LootTables[Index].Loots(TableEntry)
 	{
@@ -193,35 +208,41 @@ private static function RecalculateChancesForRollGroup(X2LootTable LootTable, in
 			if (LootTable.LootTables[Index].Loots[TableEntryIndex].RollGroup == RollGroup)
 			{
 				OldChance = LootTable.LootTables[Index].Loots[TableEntryIndex].Chance;
-				NewChance = Round(100 / SumChances * OldChance);
-
+				NewChance = 100 / SumChances * OldChance;
 				NewSumChances += NewChance;
+
+				EntryReminder.ChanceReminder = (100 / SumChances * OldChance) - NewChance;
+				EntryReminder.EntryIndex = TableEntryIndex;
+				Reminders.AddItem(EntryReminder);
 
 				LootTable.LootTables[Index].Loots[TableEntryIndex].Chance = NewChance;
 			}
 		}
-		// even out round based differences
+
+
+		// even out round based differences using the largest remainder method
+		Reminders.Sort(SortReminder);
 		RoundDiff = (100 - NewSumChances);
-		NewSumChances = 0;
-		TableEntryIndex  = 0;
-		for (TableEntryIndex = 0; TableEntryIndex < LootTable.LootTables[Index].Loots.Length; TableEntryIndex++)
+		while (RoundDiff != 0)
 		{
-			if (LootTable.LootTables[Index].Loots[TableEntryIndex].RollGroup == RollGroup)
+			foreach Reminders(EntryReminder)
 			{
 				if (RoundDiff > 0)
 				{
-					LootTable.LootTables[Index].Loots[TableEntryIndex].Chance += 1;
+					LootTable.LootTables[Index].Loots[EntryReminder.EntryIndex].Chance += 1;
 					RoundDiff--;
 				}
 				else if (RoundDiff < 0)
 				{
-					LootTable.LootTables[Index].Loots[TableEntryIndex].Chance -= 1;
-					DiffIndex++;
+					LootTable.LootTables[Index].Loots[EntryReminder.EntryIndex].Chance -= 1;
+					RoundDiff++;
 				}
-				NewSumChances += LootTable.LootTables[Index].Loots[TableEntryIndex].Chance;
+				else if (RoundDiff == 0)
+				{
+					break;
+				}
 			}
 		}
-		LootTable.LootTables[Index].Loots[0].Chance += (100 - NewSumChances);
 	}
 }
 // End Issue #275
